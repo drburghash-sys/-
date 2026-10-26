@@ -1,0 +1,43 @@
+name: Build Android APK
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Stable repository debug signing key
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p ~/.android
+          if gh release download signing-key --pattern debug.keystore --dir ~/.android; then
+            echo 'Using existing repository signing key'
+          else
+            keytool -genkeypair -keystore ~/.android/debug.keystore -storepass android -alias androiddebugkey -keypass android -dname 'CN=Android Debug,O=Android,C=US' -keyalg RSA -keysize 2048 -validity 10000
+            gh release create signing-key ~/.android/debug.keystore --title 'APK signing key (debug only)' --notes 'Non-production debug key for stable local updates.'
+          fi
+      - run: gradle assembleDebug lintDebug --no-daemon
+      - run: cp app/build/outputs/apk/debug/app-debug.apk Mobile-Index.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Mobile-Index-APK
+          path: Mobile-Index.apk
+      - name: Publish installable APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view v1.0.0 || gh release create v1.0.0 --title 'فهرس الجوال 1.0.0' --notes 'فهرسة محلية، فلاتر منسدلة، فتح الملفات، دون نقل أو حذف.'
+          gh release upload v1.0.0 Mobile-Index.apk --clobber
