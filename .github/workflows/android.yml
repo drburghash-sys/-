@@ -32,6 +32,9 @@ jobs:
             gh release create signing-key ~/.android/debug.keystore --title 'APK signing key (debug only)' --notes 'Non-production debug key for stable local updates.'
           fi
       - run: gradle assembleDebug lintDebug --no-daemon
+      - name: Lint details on failure
+        if: failure()
+        run: cat app/build/intermediates/lint_intermediate_text_report/debug/lintReportDebug/lint-results-debug.txt || true
       - run: cp app/build/outputs/apk/debug/app-debug.apk Mobile-Index.apk
       - uses: actions/upload-artifact@v4
         with:
